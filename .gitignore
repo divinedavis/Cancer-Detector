@@ -1,0 +1,5 @@
+logs/ 
+models/ 
+raw_data/ 
+*.h5 
+__pycache__/ 
