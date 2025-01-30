@@ -1,0 +1,46 @@
+.drag-drop-container {
+    text-align: center;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+
+.drop-area {
+    border: 2px dashed #888;
+    border-radius: 12px;
+    padding: 40px;
+    margin: 20px auto;
+    width: 300px;
+    height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f9f9f9;
+    color: #555;
+    cursor: pointer;
+}
+
+.drop-area p {
+    margin: 0;
+    font-size: 16px;
+}
+
+.submit-button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 16px;
+    color: #fff;
+    background-color: #007bff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.submit-button:hover {
+    background-color: #0056b3;
+}
+
+.message {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #333;
+}
