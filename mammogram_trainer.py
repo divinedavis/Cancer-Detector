@@ -188,4 +188,13 @@ def main():
     
     try:
         # Train model with 2-hour time limit
-        history, model = trainer.train(epochs=10, batch_size=8, max
+        history, model = trainer.train(epochs=10, batch_size=8, max_time_hours=2)
+        
+        # Save final model
+        model.save('models/final_mammogram_model.h5')
+        
+    except Exception as e:
+        print(f"Error occurred during training: {str(e)}")
+
+if __name__ == "__main__":
+    main()
