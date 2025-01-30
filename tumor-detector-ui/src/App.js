@@ -1,9 +1,10 @@
-// src/App.js
 import React from 'react';
 import DragDropImageUpload from './components/DragDropImageUpload';
 import './styles/DragDropImageUpload.css';
 
 function App() {
+    console.log('App component rendered!');  // Add this line
+
     return (
         <div className="App">
             <header className="App-header">
