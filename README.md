@@ -122,6 +122,14 @@ The backend model uses TensorFlow and Keras to implement a CNN designed for clas
 
 This architecture is optimized for handling medical images and performing binary or multi-class predictions.
 
+### **Image Processing and Prediction File**
+The prediction process is handled by the **`backend.py`** file. When an image is uploaded through the `/api/predict` endpoint:
+
+1. The image is temporarily stored on the server.
+2. A deep learning model, implemented in TensorFlow/Keras, processes the image.
+3. The model predicts whether the image shows signs of a brain tumor.
+4. The result is returned as a JSON response to the frontend.
+
 ### **Python Libraries:**
 - **Flask:** Handles API requests for image uploads and predictions.
 - **Flask-CORS:** Enables cross-origin requests from the frontend.
