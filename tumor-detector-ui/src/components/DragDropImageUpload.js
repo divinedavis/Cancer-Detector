@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 
 export default function DragDropImageUpload() {
+    console.log('DragDropImageUpload component rendered!');
+
     const [image, setImage] = useState(null);
     const [message, setMessage] = useState('');
 
@@ -26,27 +28,24 @@ export default function DragDropImageUpload() {
         }
 
         const formData = new FormData();
-        formData.append('file', image);  // Ensure 'file' key matches backend
+        formData.append('file', image);
+
+        console.log('Submitting form with image:', image.name);
 
         try {
-            setMessage('Uploading image...');
-
-            // Fetch the backend API endpoint
             const response = await fetch('http://127.0.0.1:5000/api/predict', {
                 method: 'POST',
                 body: formData,
             });
 
-            // Handle response
             if (response.ok) {
                 const result = await response.json();
                 setMessage(`Prediction result: ${result.prediction}`);
             } else {
-                const errorResponse = await response.json();
-                setMessage(`Error: ${errorResponse.error || 'Something went wrong.'}`);
+                setMessage('Error occurred while processing the image.');
             }
         } catch (error) {
-            setMessage(`Error: Could not reach the server (${error.message})`);
+            setMessage(`Error: ${error.message}`);
         }
     };
 
