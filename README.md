@@ -110,17 +110,24 @@ npm start
 - **Frontend:** React
 - **Backend:** Flask
 - **Styling:** CSS (Drag-and-drop interface)
-- **Deep Learning Architecture:** Convolutional Neural Network (CNN)
+- **Deep Learning:** TensorFlow, Keras, and Convolutional Neural Networks (CNN)
 
-### **Architecture Details:**
-The backend uses a CNN model to classify brain tumor images. The architecture includes:
+### **Deep Learning Architecture:**
+The backend model uses TensorFlow and Keras to implement a CNN designed for classifying brain tumor images. Key components of the architecture include:
 
-- **Convolution Layers:** Extract spatial features from images.
-- **Max Pooling Layers:** Downsample feature maps to reduce dimensionality.
-- **Flatten and Dense Layers:** Fully connected layers for classification.
+- **Convolution Layers:** Extract spatial features from input images.
+- **Max Pooling Layers:** Reduce the dimensionality of feature maps while retaining essential information.
+- **Flatten and Dense Layers:** Fully connected layers that process extracted features for final classification.
 - **Dropout Layers:** Prevent overfitting by randomly deactivating nodes during training.
 
-This architecture is designed to efficiently process medical images and make binary or multi-class predictions.
+This architecture is optimized for handling medical images and performing binary or multi-class predictions.
+
+### **Python Libraries:**
+- **Flask:** Handles API requests for image uploads and predictions.
+- **Flask-CORS:** Enables cross-origin requests from the frontend.
+- **TensorFlow/Keras:** Implements the deep learning model.
+- **Werkzeug:** Manages file uploads securely.
+- **Pandas (optional):** For handling data operations (if needed).
 
 ---
 
