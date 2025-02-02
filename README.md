@@ -1,20 +1,19 @@
-# Cancer Detection Web Application
-- Convolutional Neural Network
-- Machine Learning
-- Deep Learning
-- Artificial Intelligence
+# Caner Detection Application
 
-## Feature Implementation
-This project is a full-stack application for detecting cancer medical images. It includes a React frontend and a Flask backend to handle image uploads and predictions.
-- Phase 1 (MVP) - be able to detect MRI images at a 90% rate
-- Phase 2 - be able to detect all medical images at a 90% rate
-- Phase 3 - be able to detect all medical images at a 98% rate
+This project is a full-stack application for detecting cancer in medical images. It includes a React frontend, Flask backend to handle image uploads and predictions, and a Neural Network to predict outcomes.
 
 ## Features
 
 - **Drag-and-drop interface** for image uploads.
 - Sends the uploaded image to a Flask API for prediction.
 - Displays prediction results to the user.
+
+## Feature Implementation
+This project is a full-stack application for detecting cancer medical images. It includes a React frontend and a Flask backend to handle image uploads and predictions.
+
+- Phase 1 (MVP) - be able to detect MRI images at a 90% rate
+- Phase 2 - be able to detect all medical images at a 90% rate
+- Phase 3 - be able to detect all medical images at a 98% rate
 
 ---
 
@@ -130,20 +129,51 @@ The backend model uses TensorFlow and Keras to implement a CNN designed for clas
 
 This architecture is optimized for handling medical images and performing binary or multi-class predictions.
 
-### **Image Processing and Prediction File**
-The prediction process is handled by the **`backend.py`** file. When an image is uploaded through the `/api/predict` endpoint:
+---
 
-1. The image is temporarily stored on the server.
-2. A deep learning model, implemented in TensorFlow/Keras, processes the image.
-3. The model predicts whether the image shows signs of a brain tumor.
-4. The result is returned as a JSON response to the frontend.
+## Overview of Your Network Architecture
+This architecture is defined in the `build_model` function in `cancer_trainer.py`:
 
-### **Python Libraries:**
-- **Flask:** Handles API requests for image uploads and predictions.
-- **Flask-CORS:** Enables cross-origin requests from the frontend.
-- **TensorFlow/Keras:** Implements the deep learning model.
-- **Werkzeug:** Manages file uploads securely.
-- **Pandas (optional):** For handling data operations (if needed).
+```python
+model = tf.keras.Sequential([
+    tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
+    tf.keras.layers.MaxPooling2D((2, 2)),
+    tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D((2, 2)),
+    tf.keras.layers.Conv2D(128, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D((2, 2)),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dropout(0.5),
+    tf.keras.layers.Dense(num_classes, activation='softmax' if num_classes > 2 else 'sigmoid')
+])
+```
+
+### **Components Explained:**
+
+1. **Convolution Layers (`Conv2D`)**
+   - Extract spatial features from input images by applying filters.
+   - The filters learn patterns such as edges and shapes.
+
+2. **Max Pooling Layers (`MaxPooling2D`)**
+   - Downsample (reduce) the size of feature maps, keeping essential information while lowering computation.
+
+3. **Flatten Layer (`Flatten`)**
+   - Converts the 2D feature maps into a 1D vector to pass to fully connected layers.
+
+4. **Dense Layers (`Dense`)**
+   - Fully connected layers that perform classification based on the extracted features.
+
+5. **Dropout Layer (`Dropout`)**
+   - Randomly deactivates neurons during training to reduce overfitting and improve generalization.
+
+6. **Output Layer**
+   - Uses **softmax** for multi-class classification (e.g., brain tumor types) or **sigmoid** for binary classification (e.g., tumor vs. no tumor).
+
+### **Key Characteristics of Your CNN:**
+
+- **Small to medium complexity:** Suitable for image sizes around 150x150 or 299x299.
+- **Classification focus:** Detects categories such as **glioma**, **meningioma**, **no_tumor**, and **pituitary** tumors.
 
 ---
 
