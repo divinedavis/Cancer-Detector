@@ -1,4 +1,4 @@
-# Cancer Detection Web Application
+# Cancer Detection Web Application (Convelutional Neural Network - Machine Learning - Deep Learning - Artificial Intelligence)
 
 This project is a full-stack application for detecting cancer medical images. It includes a React frontend and a Flask backend to handle image uploads and predictions.
 Phase 1 (MVP) - be able to detect MRI images at a 90% rate
