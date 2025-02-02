@@ -5,11 +5,11 @@ This project is a full-stack application for detecting cancer in medical images.
 ## Features
 
 - **Drag-and-drop interface** for image uploads.
-- Sends the uploaded image to a Flask API for prediction.
-- Displays prediction results to the user.
+- Sends the uploaded image to a Flask API.
+- Displays prediction results to the user immediately.
 
 ## Feature Implementation
-This project is a full-stack application for detecting cancer medical images. It includes a React frontend and a Flask backend to handle image uploads and predictions.
+This project is a full-stack application for detecting cancer medical images. It includes a React frontend and a Flask backend to handle image uploads.
 
 - Phase 1 (MVP) - be able to detect MRI images at a 90% rate
 - Phase 2 - be able to detect all medical images at a 90% rate
