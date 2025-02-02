@@ -1,5 +1,5 @@
 # Cancer Detection Web Application
-- Convelutional Neural Network
+- Convolutional Neural Network
 - Machine Learning
 - Deep Learning
 - Artificial Intelligence
