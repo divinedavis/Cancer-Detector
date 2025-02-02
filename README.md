@@ -4,10 +4,11 @@
 - Deep Learning
 - Artificial Intelligence
 
+## Feature Implementation
 This project is a full-stack application for detecting cancer medical images. It includes a React frontend and a Flask backend to handle image uploads and predictions.
-Phase 1 (MVP) - be able to detect MRI images at a 90% rate
-Phase 2 - be able to detect all medical images at a 90% rate
-Phase 3 - be able to detect all medical images at a 98% rate
+- Phase 1 (MVP) - be able to detect MRI images at a 90% rate
+- Phase 2 - be able to detect all medical images at a 90% rate
+- Phase 3 - be able to detect all medical images at a 98% rate
 
 ## Features
 
