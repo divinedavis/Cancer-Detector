@@ -11,9 +11,11 @@ This project is a full-stack application for detecting cancer in medical images.
 ## Feature Implementation
 This project is a full-stack application for detecting cancer medical images. It includes a React frontend and a Flask backend to handle image uploads.
 
-- Phase 1 (MVP) - be able to detect MRI images at a 90% rate
-- Phase 2 - be able to detect all medical images at a 90% rate
-- Phase 3 - be able to detect all medical images at a 98% rate
+- Phase 1 (MVP) - be able to read MRI images
+- Phase 2 - be able to detect MRI images at a 90% rate
+- Phase 3 - be able to detect all medical images 
+- Phase 4 - be able to detect all medical images at a 90% rate
+- Phase 5 - be able to detect all medical images at a 98% rate
 
 ---
 
@@ -52,9 +54,6 @@ npm install
 ```
 
 ### For the Backend:
-```sh
-pip install -r requirements.txt
-```
 
 *Note:* You may need to install Flask and Flask-CORS if not listed in `requirements.txt`:
 ```sh
@@ -71,7 +70,7 @@ python backend.py
 ```
 - The backend runs on **http://127.0.0.1:5000**.
 
-### Start the Frontend:
+### Then start the Frontend:
 ```sh
 npm start
 ```
@@ -149,7 +148,7 @@ model = tf.keras.Sequential([
 ])
 ```
 
-### **Components Explained:**
+### **Components:**
 
 1. **Convolution Layers (`Conv2D`)**
    - Extract spatial features from input images by applying filters.
@@ -170,10 +169,10 @@ model = tf.keras.Sequential([
 6. **Output Layer**
    - Uses **softmax** for multi-class classification (e.g., brain tumor types) or **sigmoid** for binary classification (e.g., tumor vs. no tumor).
 
-### **Key Characteristics of Your CNN:**
+### **Key Characteristics of the CNN:**
 
 - **Small to medium complexity:** Suitable for image sizes around 150x150 or 299x299.
-- **Classification focus:** Detects categories such as **glioma**, **meningioma**, **no_tumor**, and **pituitary** tumors.
+- **Classification focus:** Detects categories such as **glioma**, **meningioma**, and **pituitary** tumors.
 
 ---
 
