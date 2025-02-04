@@ -2,6 +2,8 @@
 
 This project is a full-stack application for detecting cancer in medical images. It includes a React frontend, Flask backend to handle image uploads and predictions, and a Neural Network to predict outcomes.
 
+![Screenshot of UI](https://github.com/divinedavis/Cancer-Detector/blob/main/Screenshot%20of%20UI.png)
+
 ## Features
 
 - **Drag-and-drop interface** for image uploads.
