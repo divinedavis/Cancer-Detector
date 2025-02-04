@@ -14,10 +14,18 @@ CORS(app)
 UPLOAD_FOLDER = './uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Load the trained model
-model = load_model('./path/to/final_brain_tumor_model.h5')
+# Correct path to your model file
+model_path = 'C:/Users/divin/Documents/Cancer Detector/models/final_brain_tumor_model.h5'
 
-# Class labels (adjust based on your dataset)
+# Load the trained model
+try:
+    model = load_model(model_path)
+    print(f"Model loaded successfully from {model_path}")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    exit(1)
+
+# Class labels
 class_labels = {0: 'glioma', 1: 'meningioma', 2: 'no_tumor', 3: 'pituitary'}
 
 def predict_image(file_path):
@@ -28,8 +36,16 @@ def predict_image(file_path):
 
     # Get prediction from the model
     prediction = model.predict(image)
-    predicted_class = np.argmax(prediction) if prediction.shape[-1] > 1 else (prediction > 0.5).astype(int)
-    result = class_labels.get(predicted_class[0], 'Unknown')
+    print("Raw prediction output:", prediction)
+
+    # Handle both binary and multi-class classification outputs
+    if prediction.shape[-1] > 1:
+        predicted_class = np.argmax(prediction)  # Multi-class case
+    else:
+        predicted_class = int(prediction > 0.5)  # Binary classification case
+
+    print("Predicted class:", predicted_class)
+    result = class_labels.get(predicted_class, 'Unknown')
 
     return result
 
