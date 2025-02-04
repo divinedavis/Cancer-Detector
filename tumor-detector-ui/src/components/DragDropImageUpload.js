@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
+import '../styles/DragDropImageUpload.css';
 
 export default function DragDropImageUpload() {
-    console.log('DragDropImageUpload component rendered!');
-
     const [image, setImage] = useState(null);
     const [message, setMessage] = useState('');
 
@@ -18,6 +17,16 @@ export default function DragDropImageUpload() {
             setMessage('');
         } else {
             setMessage('Please drop a valid image file.');
+        }
+    };
+
+    const handleFileChange = (event) => {
+        const file = event.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            setImage(file);
+            setMessage('');
+        } else {
+            setMessage('Please select a valid image file.');
         }
     };
 
@@ -40,11 +49,14 @@ export default function DragDropImageUpload() {
 
             if (response.ok) {
                 const result = await response.json();
+                console.log('Server response:', result);
                 setMessage(`Prediction result: ${result.prediction}`);
             } else {
+                console.log('Error from server:', response.statusText);
                 setMessage('Error occurred while processing the image.');
             }
         } catch (error) {
+            console.error('Error during fetch:', error);
             setMessage(`Error: ${error.message}`);
         }
     };
@@ -57,15 +69,15 @@ export default function DragDropImageUpload() {
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
             >
-                {image ? (
-                    <p>Image Selected: {image.name}</p>
-                ) : (
-                    <p>Drag and drop an image here</p>
-                )}
+                {image ? <p>Image Selected: {image.name}</p> : <p>Drag and drop an image here</p>}
             </div>
-            <button onClick={handleSubmit} className="submit-button">
-                Submit Image
-            </button>
+            <button onClick={handleSubmit} className="submit-button">Submit Image</button>
+            <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="upload-button"
+            />
             {message && <p className="message">{message}</p>}
         </div>
     );
