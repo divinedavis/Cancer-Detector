@@ -21,3 +21,16 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Ignore all .h5 files
+*.h5
+
+# Ignore images (add specific extensions you want to exclude)
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Optionally, ignore a specific folder (e.g., 'models' folder)
+models/
+
