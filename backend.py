@@ -1,74 +1,88 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
-from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+import sqlite3
 import os
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.image import load_img, img_to_array
-import numpy as np
 
 # Initialize Flask app and enable CORS
 app = Flask(__name__)
-CORS(app)
+CORS(app, supports_credentials=True)
 
-# Directory to save uploaded images
-UPLOAD_FOLDER = './uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Configure session secret key for user sessions
+app.secret_key = 'your_secret_key_here'
 
-# Correct path to your model file
-model_path = 'C:/Users/divin/Documents/Cancer Detector/models/final_brain_tumor_model.h5'
+# Set secure cookie options
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-# Load the trained model
-try:
-    model = load_model(model_path)
-    print(f"Model loaded successfully from {model_path}")
-except Exception as e:
-    print(f"Error loading model: {e}")
-    exit(1)
+# Database setup
+DATABASE_PATH = './users.db'
 
-# Class labels
-class_labels = {0: 'glioma', 1: 'meningioma', 2: 'no_tumor', 3: 'pituitary'}
+def get_db_connection():
+    conn = sqlite3.connect(DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-def predict_image(file_path):
-    # Load and preprocess the image
-    image = load_img(file_path, target_size=(150, 150), color_mode='grayscale')
-    image = img_to_array(image) / 255.0  # Normalize pixel values to [0, 1]
-    image = np.expand_dims(image, axis=0)  # Add batch dimension
+# User Signup Endpoint
+@app.route('/api/signup', methods=['POST'])
+def signup():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
 
-    # Get prediction from the model
-    prediction = model.predict(image)
-    print("Raw prediction output:", prediction)
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
 
-    # Handle both binary and multi-class classification outputs
-    if prediction.shape[-1] > 1:
-        predicted_class = np.argmax(prediction)  # Multi-class case
+    password_hash = generate_password_hash(password)
+
+    try:
+        conn = get_db_connection()
+        conn.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, password_hash))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'User created successfully'}), 201
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'Username already exists'}), 409
+
+# User Login Endpoint
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+
+    conn = get_db_connection()
+    user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+
+    if user and check_password_hash(user['password_hash'], password):
+        session['user_id'] = user['id']
+        return jsonify({'message': 'Login successful'})
     else:
-        predicted_class = int(prediction > 0.5)  # Binary classification case
+        return jsonify({'error': 'Invalid credentials'}), 401
 
-    print("Predicted class:", predicted_class)
-    result = class_labels.get(predicted_class, 'Unknown')
+# Protected Profile Endpoint
+@app.route('/api/profile', methods=['GET'])
+def profile():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
 
-    return result
-
-@app.route('/api/predict', methods=['POST'])
-def predict():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-
-    file_path = os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))
-    file.save(file_path)
-
-    # Run prediction
-    prediction = predict_image(file_path)
-
-    return jsonify({'prediction': prediction})
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    return jsonify({'status': 'Server is running'})
+    return jsonify({'message': 'This is a protected route'}), 200
 
 if __name__ == '__main__':
+    conn = get_db_connection()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.close()
+
     app.run(host='0.0.0.0', port=5000, debug=True)
