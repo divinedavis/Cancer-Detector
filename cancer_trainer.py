@@ -1,8 +1,14 @@
 import tensorflow as tf
+from tensorflow.keras.applications import VGG16
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.layers import Dense, Flatten, Dropout
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
-from pathlib import Path
 import logging
 import argparse
+from pathlib import Path
 
 class CancerTrainer:
     def __init__(self, dataset_type, data_dir):
@@ -16,112 +22,74 @@ class CancerTrainer:
         )
         self.logger = logging.getLogger(__name__)
 
-    def create_dataset(self, batch_size=16):
-        """Create a TensorFlow dataset depending on the dataset type."""
-        self.logger.info("Creating dataset...")
+    def create_augmented_dataset(self, batch_size=16):
+        """Create a TensorFlow dataset with data augmentation."""
+        self.logger.info("Creating augmented dataset...")
 
-        if self.dataset_type == 'mammogram':
-            image_size = 299
-            categories = ['malignant', 'benign']
-        elif self.dataset_type == 'brain_tumor':
-            image_size = 150
-            categories = ['glioma', 'meningioma', 'no_tumor', 'pituitary']
-        else:
-            raise ValueError("Invalid dataset type. Use 'mammogram' or 'brain_tumor'.")
+        image_size = 150 if self.dataset_type == 'brain_tumor' else 299
+        categories = ['glioma', 'meningioma', 'no_tumor', 'pituitary', 'class_5', 'class_6']
 
-        # Prepare file paths and labels
-        image_paths = []
-        labels = []
+        datagen = ImageDataGenerator(
+            rescale=1.0 / 255,
+            rotation_range=20,
+            width_shift_range=0.2,
+            height_shift_range=0.2,
+            shear_range=0.2,
+            zoom_range=0.2,
+            horizontal_flip=True,
+            validation_split=0.2
+        )
 
-        for category in categories:
-            category_path = self.data_dir / category
-            label = categories.index(category)
+        train_dataset = datagen.flow_from_directory(
+            self.data_dir,
+            target_size=(image_size, image_size),
+            color_mode='rgb',  # Convert images to RGB
+            batch_size=batch_size,
+            class_mode='categorical',
+            subset='training'
+        )
 
-            # Collect all images and corresponding labels
-            for img_path in category_path.glob('*.jpg'):
-                image_paths.append(str(img_path))  # Ensure paths are strings
-                labels.append(label)
+        val_dataset = datagen.flow_from_directory(
+            self.data_dir,
+            target_size=(image_size, image_size),
+            color_mode='rgb',
+            batch_size=batch_size,
+            class_mode='categorical',
+            subset='validation'
+        )
 
-        # Convert lists to TensorFlow-compatible format
-        image_paths = tf.constant(image_paths, dtype=tf.string)
-        labels = tf.constant(labels, dtype=tf.int32)
-
-        # Create a TensorFlow dataset
-        dataset = tf.data.Dataset.from_tensor_slices((image_paths, labels))
-
-        def load_image(img_path, label):
-            img = tf.io.read_file(img_path)              # Read file from path
-            img = tf.io.decode_jpeg(img, channels=1)      # Decode JPEG to grayscale
-            img = tf.image.resize(img, [image_size, image_size])  # Resize image
-            img = img / 255.0                             # Normalize image
-            return img, label
-
-        dataset = dataset.map(load_image, num_parallel_calls=tf.data.AUTOTUNE)
-        dataset = dataset.shuffle(1000).batch(batch_size).prefetch(tf.data.AUTOTUNE)
-
-        return dataset, image_size
+        return train_dataset, val_dataset, image_size
 
     def build_model(self, image_size, num_classes):
-        """Build a CNN model."""
-        model = tf.keras.Sequential([
-            tf.keras.layers.Input(shape=(image_size, image_size, 1)),
+        """Build a CNN model using transfer learning."""
+        base_model = VGG16(weights='imagenet', include_top=False, input_shape=(image_size, image_size, 3))
+        base_model.trainable = False
 
-            # Convolutional layers
-            tf.keras.layers.Conv2D(32, 3, activation='relu'),
-            tf.keras.layers.MaxPooling2D(),
-
-            tf.keras.layers.Conv2D(64, 3, activation='relu'),
-            tf.keras.layers.MaxPooling2D(),
-
-            tf.keras.layers.Conv2D(128, 3, activation='relu'),
-            tf.keras.layers.MaxPooling2D(),
-
-            # Fully connected layers
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(128, activation='relu'),
-            tf.keras.layers.Dropout(0.5),
-            tf.keras.layers.Dense(1 if num_classes == 2 else num_classes, 
-                                  activation='sigmoid' if num_classes == 2 else 'softmax')
+        model = Sequential([
+            base_model,
+            Flatten(),
+            Dense(128, activation='relu'),
+            Dropout(0.5),
+            Dense(num_classes, activation='softmax')
         ])
 
-        # Select appropriate loss function
-        if num_classes == 2:
-            loss = 'binary_crossentropy'
-        else:
-            loss = 'sparse_categorical_crossentropy'
-
-        model.compile(optimizer='adam', loss=loss, metrics=['accuracy'])
-
+        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        
         return model
 
     def train(self, epochs=10, batch_size=16):
         """Train the model."""
         self.logger.info("Starting training...")
 
-        dataset, image_size = self.create_dataset(batch_size=batch_size)
-        val_dataset = dataset.take(100)
-        train_dataset = dataset.skip(100)
+        train_dataset, val_dataset, image_size = self.create_augmented_dataset(batch_size=batch_size)
+        num_classes = 6  # Update number of classes here
 
-        num_classes = 4 if self.dataset_type == 'brain_tumor' else 2
-
-        # Build and train the model
         model = self.build_model(image_size, num_classes)
         model.summary()
 
-        model_dir = Path('models')
-        model_dir.mkdir(exist_ok=True)
-
         callbacks = [
-            tf.keras.callbacks.ModelCheckpoint(
-                model_dir / f'best_{self.dataset_type}_model.h5',
-                save_best_only=True,
-                monitor='val_accuracy'
-            ),
-            tf.keras.callbacks.EarlyStopping(
-                monitor='val_loss',
-                patience=3,
-                restore_best_weights=True
-            )
+            ModelCheckpoint('best_model.h5', save_best_only=True, monitor='val_accuracy'),
+            EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
         ]
 
         history = model.fit(
@@ -132,8 +100,20 @@ class CancerTrainer:
         )
 
         self.logger.info("Training completed.")
-        model.save(model_dir / f'final_{self.dataset_type}_model.h5')
-        return history
+        model.save('final_model.h5')
+
+        self.evaluate_model(model, val_dataset)
+
+    def evaluate_model(self, model, val_dataset):
+        """Evaluate model and display metrics."""
+        val_images, val_labels = next(iter(val_dataset))
+        predictions = model.predict(val_images)
+
+        predicted_classes = np.argmax(predictions, axis=1)
+        true_classes = np.argmax(val_labels, axis=1)
+
+        print(confusion_matrix(true_classes, predicted_classes))
+        print(classification_report(true_classes, predicted_classes))
 
 def main():
     parser = argparse.ArgumentParser(description='Train a cancer detection model.')
@@ -144,7 +124,6 @@ def main():
 
     args = parser.parse_args()
 
-    # Initialize and train the model
     trainer = CancerTrainer(args.dataset, args.data_dir)
     trainer.train(epochs=args.epochs, batch_size=args.batch_size)
 

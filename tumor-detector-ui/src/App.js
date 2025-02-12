@@ -1,15 +1,11 @@
 import React from 'react';
+import './App.css';
 import DragDropImageUpload from './components/DragDropImageUpload';
 
 function App() {
     return (
         <div className="App">
-            <header className="App-header">
-                <h1></h1>
-            </header>
-            <main>
-                <DragDropImageUpload />
-            </main>
+            <DragDropImageUpload />
         </div>
     );
 }
