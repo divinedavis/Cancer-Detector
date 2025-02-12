@@ -1,12 +1,13 @@
 import tensorflow as tf
+import cv2
+import numpy as np
 from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.layers import Dense, Flatten, GlobalAveragePooling2D, Dropout
+from tensorflow.keras.layers import Dense, Flatten, GlobalAveragePooling2D, Dropout, BatchNormalization, Activation
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.optimizers.schedules import CosineDecay
 from sklearn.metrics import confusion_matrix, classification_report
-import numpy as np
 import logging
 import argparse
 from pathlib import Path
@@ -15,6 +16,7 @@ class CancerTrainer:
     def __init__(self, dataset_type, data_dir):
         self.dataset_type = dataset_type
         self.data_dir = Path(data_dir)
+        self.image_size = 150 if dataset_type == 'brain_tumor' else 299
 
         # Setup logging
         logging.basicConfig(
@@ -23,14 +25,32 @@ class CancerTrainer:
         )
         self.logger = logging.getLogger(__name__)
 
+    def preprocess_image(self, image):
+        """Apply OpenCV preprocessing to enhance images."""
+        if isinstance(image, str):  # Check if image is a file path
+            image = cv2.imread(image)
+            if image is None:
+                self.logger.error(f"Error loading image: {image}")
+                return np.zeros((self.image_size, self.image_size, 3), dtype=np.uint8)
+        
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.resize(image, (self.image_size, self.image_size))  # Resize for model input
+        image = cv2.GaussianBlur(image, (5, 5), 0)  # Reduce noise
+
+        # Ensure proper 8-bit grayscale conversion before equalization
+        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        gray = (gray * 255).astype(np.uint8)  # Convert float32 to uint8
+        equalized = cv2.equalizeHist(gray)
+
+        image = cv2.cvtColor(equalized, cv2.COLOR_GRAY2RGB)  # Convert back to 3 channels
+        return image / 255.0  # Normalize
+
     def create_augmented_dataset(self, batch_size=16):
         """Create a TensorFlow dataset with enhanced data augmentation."""
-        self.logger.info("Creating augmented dataset...")
-
-        image_size = 150 if self.dataset_type == 'brain_tumor' else 299
+        self.logger.info("Creating augmented dataset with OpenCV preprocessing...")
 
         datagen = ImageDataGenerator(
-            rescale=1.0 / 255,
+            preprocessing_function=self.preprocess_image,
             rotation_range=40,
             width_shift_range=0.3,
             height_shift_range=0.3,
@@ -44,7 +64,7 @@ class CancerTrainer:
 
         train_dataset = datagen.flow_from_directory(
             self.data_dir,
-            target_size=(image_size, image_size),
+            target_size=(self.image_size, self.image_size),
             batch_size=batch_size,
             class_mode='categorical',
             subset='training'
@@ -52,26 +72,31 @@ class CancerTrainer:
 
         val_dataset = datagen.flow_from_directory(
             self.data_dir,
-            target_size=(image_size, image_size),
+            target_size=(self.image_size, self.image_size),
             batch_size=batch_size,
             class_mode='categorical',
             subset='validation'
         )
 
-        return train_dataset, val_dataset, image_size
+        return train_dataset, val_dataset
 
-    def build_model(self, image_size, num_classes):
+    def build_model(self, num_classes):
         """Build an optimized CNN model using ResNet50 with fine-tuning."""
-        base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(image_size, image_size, 3))
-        for layer in base_model.layers[:-5]:  # Unfreeze last 5 layers for fine-tuning
-            layer.trainable = True
+        base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(self.image_size, self.image_size, 3))
+        for layer in base_model.layers:
+            layer.trainable = False  # Initially freeze all layers
 
         model = Sequential([
             base_model,
             GlobalAveragePooling2D(),
-            Dense(512, activation='relu'),
+            BatchNormalization(),
+            Dense(512, kernel_initializer='he_uniform'),
+            BatchNormalization(),
+            Activation('relu'),
             Dropout(0.5),
-            Dense(256, activation='relu'),
+            Dense(256, kernel_initializer='he_uniform'),
+            BatchNormalization(),
+            Activation('relu'),
             Dropout(0.4),
             Dense(num_classes, activation='softmax')
         ])
@@ -79,20 +104,21 @@ class CancerTrainer:
         lr_schedule = CosineDecay(initial_learning_rate=0.0005, decay_steps=1000, alpha=0.0001)
         model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=lr_schedule),
                       loss='categorical_crossentropy',
-                      metrics=['accuracy'])
+                      metrics=['accuracy', 'AUC'])
         
         return model
 
     def train(self, epochs=30, batch_size=16):
         """Train the model with additional callbacks for better performance."""
-        self.logger.info("Starting training...")
+        self.logger.info("Starting training with OpenCV preprocessing and improved model...")
 
-        train_dataset, val_dataset, image_size = self.create_augmented_dataset(batch_size=batch_size)
+        train_dataset, val_dataset = self.create_augmented_dataset(batch_size=batch_size)
         num_classes = len(train_dataset.class_indices)
-        model = self.build_model(image_size, num_classes)
+        model = self.build_model(num_classes)
         model.summary()
 
-        class_weights = {i: 1.0 / count for i, count in enumerate(np.bincount(train_dataset.classes))}
+        class_counts = np.bincount(train_dataset.classes)
+        class_weights = {i: 1.0 / (count + 1e-6) for i, count in enumerate(class_counts)}  # Prevent divide by zero
 
         callbacks = [
             ModelCheckpoint('best_model_resnet.h5', save_best_only=True, monitor='val_accuracy', mode='max'),
