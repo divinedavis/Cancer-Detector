@@ -5,3 +5,4 @@ raw_data/
 __pycache__/ 
 
 final_model_resnet.keras
+final_model.keras
