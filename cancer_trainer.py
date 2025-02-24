@@ -15,7 +15,7 @@ import argparse
 from pathlib import Path
 import albumentations as A
 
-# Enable mixed precision early so that the model builds with the mixed_float16 policy.
+# Enable mixed precision for faster training (if supported)
 tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
 class CancerTrainer:
@@ -31,51 +31,58 @@ class CancerTrainer:
         )
         self.logger = logging.getLogger(__name__)
         
-        # Define Albumentations augmentation pipeline (used only for training)
+        # Enhanced Albumentations augmentation pipeline for training
         self.train_transform = A.Compose([
             A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.3),
+            A.RandomRotate90(p=0.5),
             A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, rotate_limit=30, p=0.5),
-            # Removed alpha_affine to avoid warning from ElasticTransform.
-            A.ElasticTransform(alpha=1, sigma=50, p=0.3),
-            A.GridDistortion(p=0.3),
-            A.RandomBrightnessContrast(p=0.3),
-            A.GaussianBlur(blur_limit=3, p=0.3),
+            A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+            A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=0.5),
+            A.GaussNoise(var_limit=(10.0, 50.0), p=0.3),
+            A.MotionBlur(blur_limit=7, p=0.2)
         ])
 
     def preprocess_image(self, image):
-        """Enhanced preprocessing for medical images using CLAHE"""
-        # Ensure the image is in uint8 format (values 0-255)
+        """
+        Advanced preprocessing for medical images:
+          - Convert image to uint8 if needed.
+          - Apply CLAHE for contrast enhancement.
+          - Convert back to RGB and normalize to [0,1].
+        """
         if image.dtype != np.uint8:
             image = (image * 255).astype(np.uint8)
-        # Convert to grayscale and apply CLAHE
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         equalized = clahe.apply(gray)
-        # Merge back to 3 channels and normalize to [0, 1]
         return cv2.cvtColor(equalized, cv2.COLOR_GRAY2RGB) / 255.0
 
     def preprocess_train(self, image):
-        """Preprocess and apply Albumentations augmentations for training data"""
-        # First, apply CLAHE-based preprocessing
+        """
+        Preprocess training images:
+          - First apply CLAHE-based preprocessing.
+          - Then convert to uint8 and apply enhanced augmentations.
+          - Finally, normalize to [0,1].
+        """
+        # Preprocess using CLAHE and normalization
         image = self.preprocess_image(image)
-        # Albumentations expects uint8 images, so convert back temporarily
+        # Albumentations expects uint8 images
         image_uint8 = (image * 255).astype(np.uint8)
         augmented = self.train_transform(image=image_uint8)['image']
-        # Normalize the augmented image to [0, 1]
         return augmented / 255.0
 
     def create_augmented_dataset(self, batch_size=32):
-        """Create datasets with Albumentations augmentations applied to training images."""
-        self.logger.info("Creating augmented dataset with medical-specific augmentations...")
+        """
+        Create training and validation datasets using ImageDataGenerator.
+        Training uses the enhanced augmentation pipeline; validation uses only CLAHE preprocessing.
+        """
+        self.logger.info("Creating augmented dataset with enhanced medical-specific augmentations...")
         
-        # For training: use the combined preprocessing and augmentation function.
         train_datagen = ImageDataGenerator(
             preprocessing_function=self.preprocess_train,
             validation_split=0.2,
             dtype=np.float32
         )
-        
-        # For validation: use only the CLAHE-based preprocessing.
         val_datagen = ImageDataGenerator(
             preprocessing_function=self.preprocess_image,
             validation_split=0.2,
@@ -103,14 +110,16 @@ class CancerTrainer:
         return train_dataset, val_dataset
 
     def build_model(self, num_classes):
-        """Build optimized model with fine-tuning capabilities"""
+        """
+        Build a fine-tuned ResNet50-based model with additional dense layers.
+        """
         base_model = ResNet50(
             weights='imagenet',
             include_top=False,
             input_shape=(self.image_size, self.image_size, 3)
         )
 
-        # Fine-tune last 50 layers
+        # Freeze most layers and fine-tune the last 50 layers
         for layer in base_model.layers[:-50]:
             layer.trainable = False
         for layer in base_model.layers[-50:]:
@@ -131,7 +140,6 @@ class CancerTrainer:
             Dense(num_classes, activation='softmax')
         ])
 
-        # Optimizer with cosine decay learning rate schedule
         initial_learning_rate = 0.0001
         lr_schedule = CosineDecay(
             initial_learning_rate=initial_learning_rate,
@@ -151,15 +159,16 @@ class CancerTrainer:
         return model
 
     def train(self, epochs=50, batch_size=32):
-        """Enhanced training process with comprehensive monitoring"""
-        self.logger.info("Starting optimized training process...")
+        """
+        Train the model with enhanced preprocessing and augmentation.
+        """
+        self.logger.info("Starting enhanced training process...")
 
         train_dataset, val_dataset = self.create_augmented_dataset(batch_size=batch_size)
         num_classes = len(train_dataset.class_indices)
         model = self.build_model(num_classes)
         model.summary()
 
-        # Compute class weights to handle any class imbalance.
         classes = np.unique(train_dataset.classes).astype(np.int64)
         y_train = train_dataset.classes.astype(np.int64)
         class_weights = compute_class_weight(
@@ -169,7 +178,6 @@ class CancerTrainer:
         )
         class_weights = dict(enumerate(class_weights))
 
-        # Define callbacks for training.
         callbacks = [
             ModelCheckpoint('best_model.h5', save_best_only=True, monitor='val_auc', mode='max'),
             EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
@@ -191,7 +199,9 @@ class CancerTrainer:
         self.evaluate_model(model, val_dataset)
 
     def evaluate_model(self, model, val_dataset):
-        """Comprehensive evaluation on full validation set"""
+        """
+        Evaluate the model on the validation set and print confusion matrix and classification report.
+        """
         self.logger.info("Running full evaluation...")
         
         val_dataset.reset()
@@ -211,7 +221,7 @@ class CancerTrainer:
         print(classification_report(y_true, y_pred, target_names=list(val_dataset.class_indices.keys())))
 
 def main():
-    parser = argparse.ArgumentParser(description='Train a cancer detection model.')
+    parser = argparse.ArgumentParser(description='Train a cancer detection model with enhanced data augmentation.')
     parser.add_argument('--dataset', type=str, required=True, help="Dataset type: 'mammogram' or 'brain_tumor'")
     parser.add_argument('--data_dir', type=str, required=True, help="Path to the dataset directory")
     parser.add_argument('--epochs', type=int, default=50, help="Number of epochs to train")
