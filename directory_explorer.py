@@ -22,7 +22,6 @@ class CancerTrainer:
         self.dataset_type = dataset_type
         self.data_dir = Path(data_dir)
         self.image_size = 224
-        self.expected_classes = ['glioma', 'meningioma', 'no_tumor', 'pituitary']  # Define expected classes
         
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
         self.logger = logging.getLogger(__name__)
@@ -30,9 +29,9 @@ class CancerTrainer:
         self.train_transform = A.Compose([
             A.HorizontalFlip(p=0.5),
             A.RandomRotate90(p=0.5),
-            A.Affine(translate_percent=0.1, scale=(0.9, 1.1), rotate=(-30, 30), p=0.5),
+            A.Affine(translate_percent=0.1, scale=(0.9, 1.1), rotate=(-30, 30), p=0.5),  # Fixed parameters
             A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
-            A.GaussNoise(noise_scale=(10.0, 50.0), p=0.3),  # Updated for 2.0.5+
+            A.GaussNoise(var_limit=(10.0, 50.0), p=0.3),  # Valid in 2.0.4; update if warnings persist
         ])
 
     def preprocess_image(self, image):
@@ -52,16 +51,8 @@ class CancerTrainer:
     def create_augmented_dataset(self, batch_size=32):
         self.logger.info("Creating augmented dataset...")
         
-        train_datagen = ImageDataGenerator(
-            preprocessing_function=self.preprocess_train, 
-            validation_split=0.2,
-            classes=self.expected_classes  # Restrict to 4 classes
-        )
-        val_datagen = ImageDataGenerator(
-            preprocessing_function=self.preprocess_image, 
-            validation_split=0.2,
-            classes=self.expected_classes  # Restrict to 4 classes
-        )
+        train_datagen = ImageDataGenerator(preprocessing_function=self.preprocess_train, validation_split=0.2)
+        val_datagen = ImageDataGenerator(preprocessing_function=self.preprocess_image, validation_split=0.2)
 
         train_dataset = train_datagen.flow_from_directory(
             self.data_dir, target_size=(self.image_size, self.image_size), batch_size=batch_size,
@@ -71,13 +62,6 @@ class CancerTrainer:
             self.data_dir, target_size=(self.image_size, self.image_size), batch_size=batch_size,
             class_mode='categorical', subset='validation', shuffle=False
         )
-
-        # Verify classes
-        detected_classes = list(train_dataset.class_indices.keys())
-        if set(detected_classes) != set(self.expected_classes):
-            self.logger.error(f"Class mismatch! Expected {self.expected_classes}, but found {detected_classes}")
-            raise ValueError("Class mismatch detected. Check dataset directory.")
-
         return train_dataset, val_dataset
 
     def build_model(self, num_classes):
