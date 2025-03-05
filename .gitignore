@@ -3,6 +3,8 @@ models/
 raw_data/ 
 *.h5 
 __pycache__/ 
-
 final_model_resnet.keras
 final_model.keras
+*.keras
+*.h5 
+best_model.keras   

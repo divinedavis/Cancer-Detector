@@ -5,7 +5,7 @@ from tensorflow.keras.applications import EfficientNetV2S
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, BatchNormalization, Activation
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard, Callback
 from tensorflow.keras.optimizers import AdamW
 from tensorflow.keras.regularizers import l2
 from sklearn.metrics import confusion_matrix, classification_report, f1_score
@@ -17,6 +17,17 @@ import albumentations as A
 import os
 
 tf.keras.mixed_precision.set_global_policy('mixed_float16')
+
+class ValidationLogger(Callback):
+    def __init__(self, val_dataset, log_freq=50):
+        super().__init__()
+        self.val_dataset = val_dataset
+        self.log_freq = log_freq
+
+    def on_train_batch_end(self, batch, logs=None):
+        if (batch + 1) % self.log_freq == 0:
+            val_loss, val_accuracy, val_auc, val_precision, val_recall = self.model.evaluate(self.val_dataset, verbose=0)
+            logging.info(f"Step {batch + 1}: val_loss: {val_loss:.4f}, val_accuracy: {val_accuracy:.4f}, val_auc: {val_auc:.4f}, val_precision: {val_precision:.4f}, val_recall: {val_recall:.4f}")
 
 class CancerTrainer:
     def __init__(self, dataset_type, data_dir):
@@ -50,7 +61,7 @@ class CancerTrainer:
         augmented = self.train_transform(image=image_uint8)['image']
         return augmented / 255.0
 
-    def create_augmented_dataset(self, batch_size=16):  # Optimized for CPU
+    def create_augmented_dataset(self, batch_size=16):
         self.logger.info("Creating augmented dataset...")
         
         train_datagen = ImageDataGenerator(
@@ -86,7 +97,6 @@ class CancerTrainer:
             self.logger.error(f"Class mismatch! Expected {self.expected_classes}, but found {detected_classes}")
             raise ValueError("Class mismatch detected. Check dataset directory.")
 
-        # Log class distribution
         class_counts = {cls: len(os.listdir(self.data_dir / cls)) for cls in self.expected_classes}
         self.logger.info(f"Class distribution: {class_counts}")
 
@@ -94,7 +104,7 @@ class CancerTrainer:
 
     def build_model(self, num_classes):
         base_model = EfficientNetV2S(weights='imagenet', include_top=False, input_shape=(self.image_size, self.image_size, 3))
-        for layer in base_model.layers[:-50]:  # More trainable layers
+        for layer in base_model.layers[:-100]:  # Adjusted to 100 trainable layers
             layer.trainable = False
 
         model = Sequential([
@@ -104,12 +114,12 @@ class CancerTrainer:
             Dense(512, kernel_initializer='he_uniform', kernel_regularizer=l2(1e-4)),
             BatchNormalization(),
             Activation('relu'),
-            Dropout(0.5),
+            Dropout(0.6),
             Dense(num_classes, activation='softmax')
         ])
         
         model.compile(
-            optimizer=AdamW(learning_rate=5e-4, weight_decay=0.01),  # Higher LR
+            optimizer=AdamW(learning_rate=5e-4, weight_decay=0.01),  # Back to 5e-4
             loss='categorical_crossentropy',
             metrics=['accuracy', tf.keras.metrics.AUC(name='auc'), 'recall', 'precision']
         )
@@ -130,12 +140,14 @@ class CancerTrainer:
             ModelCheckpoint('best_model.keras', save_best_only=True, monitor='val_auc', mode='max'),
             EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
             ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-7),
-            TensorBoard(log_dir='./logs')
+            TensorBoard(log_dir='./logs'),
+            ValidationLogger(val_dataset, log_freq=50)
         ]
 
         history = model.fit(
             train_dataset, validation_data=val_dataset, epochs=epochs,
-            class_weight=class_weights, callbacks=callbacks, verbose=1
+            class_weight=class_weights, callbacks=callbacks, verbose=1,
+            validation_freq=1
         )
         model.save('final_model.keras')
         self.evaluate_model(model, val_dataset)
