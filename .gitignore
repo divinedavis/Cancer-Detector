@@ -3,8 +3,14 @@ models/
 raw_data/ 
 *.h5 
 __pycache__/ 
+<<<<<<< HEAD
 final_model_resnet.keras
 final_model.keras
 *.keras
 *.h5 
 best_model.keras   
+=======
+
+final_model_resnet.keras
+final_model.keras
+>>>>>>> 688e34beec54fcc961753e1bdadb225b2c6c971b
