@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import numpy as np
@@ -11,12 +12,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
+
+# Restrict CORS to a known frontend origin instead of reflecting any origin.
+# Override with the FRONTEND_ORIGIN env var (comma-separated for multiple).
+FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN', 'http://localhost:3000')
+CORS(app, supports_credentials=True, origins=[o.strip() for o in FRONTEND_ORIGIN.split(',')])
 
 app.secret_key = os.getenv('SECRET_KEY', os.urandom(24))
 
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+# Secure cookies by default; set SESSION_COOKIE_SECURE=false only for local HTTP dev.
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'true').lower() != 'false'
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 DATABASE_PATH = os.getenv('DATABASE_PATH', './users.db')
@@ -95,7 +101,15 @@ def predict():
         return jsonify({'error': 'No file provided'}), 400
 
     file = request.files['file']
-    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+
+    # Sanitize the client-supplied filename to prevent path traversal
+    # (e.g. "../../etc/cron.d/x"). Fall back to a safe default if it sanitizes
+    # to an empty string, and confine the final path inside UPLOAD_FOLDER.
+    safe_name = secure_filename(file.filename or '') or 'upload'
+    file_path = os.path.join(UPLOAD_FOLDER, safe_name)
+    if os.path.commonpath([os.path.abspath(file_path),
+                            os.path.abspath(UPLOAD_FOLDER)]) != os.path.abspath(UPLOAD_FOLDER):
+        return jsonify({'error': 'Invalid filename'}), 400
     file.save(file_path)
 
     try:
@@ -129,4 +143,7 @@ if __name__ == '__main__':
     ''')
     conn.close()
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # debug must stay False in production: the Werkzeug debugger allows
+    # remote code execution. Enable locally with FLASK_DEBUG=true if needed.
+    debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host='0.0.0.0', port=5000, debug=debug)
