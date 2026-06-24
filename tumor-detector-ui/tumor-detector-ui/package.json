@@ -33,6 +33,7 @@
     ]
   },
   "overrides": {
+    "js-yaml": "^4.2.0",
     "nth-check": ">=2.0.1",
     "postcss": ">=8.5.10",
     "shell-quote": ">=1.7.3",
