@@ -122,6 +122,7 @@ export default function DragDropImageUpload() {
             <div className="auth-forms">
                 <h2>Login</h2>
                 <button onClick={handleLogin}>Log In</button>
+                {loggedIn && <p>Logged in as {username}.</p>}
             </div>
 
             {/* Protected Route Check */}
