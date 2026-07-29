@@ -25,17 +25,19 @@ This project is a full-stack application for detecting cancer medical images. It
 
 ```
 project-root/
-    src/
-        App.js                 # Main React component
-        index.js               # Entry point for React app
-        components/
-            DragDropImageUpload.js  # Component for drag-and-drop uploads
-        styles/
-            DragDropImageUpload.css  # Styling for the UI
-    public/
-        index.html             # HTML template for React
     backend.py                 # Flask backend API
-    package.json               # React app dependencies and scripts
+    tumor-detector-ui/         # React frontend
+        src/
+            App.js             # Main React component
+            index.js           # Entry point for React app
+            components/
+                DragDropImageUpload.js  # Component for drag-and-drop uploads
+            styles/
+                DragDropImageUpload.css  # Styling for the UI
+        public/
+            index.html         # HTML template for React
+        patches/               # patch-package fixes applied on npm install
+        package.json           # React app dependencies and scripts
 ```
 
 ---
@@ -51,7 +53,7 @@ Install dependencies:
 
 ### For the Frontend:
 ```sh
-cd project-root
+cd tumor-detector-ui
 npm install
 ```
 
@@ -74,6 +76,7 @@ python backend.py
 
 ### Then start the Frontend:
 ```sh
+cd tumor-detector-ui
 npm start
 ```
 - The React app runs on **http://localhost:3000**.
