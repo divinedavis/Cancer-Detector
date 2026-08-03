@@ -22,13 +22,20 @@ def download_kaggle_notebook(notebook_slug, output_dir):
             f"{kaggle_json_path.parent}. See Kaggle API setup instructions."
         )
     
-    # Command to download the notebook
-    # Using 'kaggle kernels pull' to fetch the notebook source
-    cmd = f"kaggle kernels pull {notebook_slug} -p {output_dir}"
-    
+    # Command to download the notebook.
+    # Using 'kaggle kernels pull' to fetch the notebook source.
+    #
+    # Passed as an argv list rather than a shell string: with shell=True, any
+    # shell metacharacter in notebook_slug or output_dir (`;`, `&&`, backticks,
+    # `$(...)`) would be interpreted by /bin/sh instead of treated as part of
+    # the argument. Both are callable parameters, so a caller passing a path
+    # with a space would already break this, and one passing untrusted input
+    # would get command execution. An argv list removes the shell entirely.
+    cmd = ["kaggle", "kernels", "pull", str(notebook_slug), "-p", str(output_dir)]
+
     try:
         # Run the command
-        result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         print(f"Download successful! Output:\n{result.stdout}")
         
         # Check if the file exists and rename it for clarity

@@ -25,12 +25,20 @@ class BrainTumorNotebookDownloader:
             
             self.logger.info("Downloading notebook and data from Kaggle...")
             
-            # Use quotes around path to handle spaces
-            command = f'kaggle kernels output huthayfahodeb/brain-tumor-detection-99-8-accuracy -p "{str(self.temp_dir)}"'
-            
+            # Passed as an argv list rather than a shell string. The manual
+            # quoting below was there to survive spaces in the temp path, which
+            # is exactly the class of bug that disappears without a shell: argv
+            # entries are handed to execve untouched, so spaces and shell
+            # metacharacters in the path are just characters.
+            command = [
+                "kaggle", "kernels", "output",
+                "huthayfahodeb/brain-tumor-detection-99-8-accuracy",
+                "-p", str(self.temp_dir),
+            ]
+
             # Run kaggle command
             self.logger.info(f"Running command: {command}")
-            result = subprocess.run(command, shell=True, capture_output=True, text=True)
+            result = subprocess.run(command, capture_output=True, text=True)
             
             if result.returncode == 0:
                 self.logger.info("Download completed successfully")
