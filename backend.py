@@ -29,8 +29,16 @@ DATABASE_PATH = os.getenv('DATABASE_PATH', './users.db')
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', './uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Load the new model trained with 4 classes
-MODEL_PATH = 'C:/Users/divin/Documents/Cancer Detector/final_model.keras'  # Updated path
+# Cap upload size so an unbounded body can't exhaust memory/disk before the
+# image is read. 10 MB is ample for an MRI slice.
+app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_UPLOAD_BYTES', 10 * 1024 * 1024))
+
+# Only accept real image types for inference.
+ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg'}
+
+# Model path is environment-driven with a repo-relative default, so the app is
+# not pinned to one developer's machine.
+MODEL_PATH = os.getenv('MODEL_PATH', os.path.join(os.path.dirname(__file__), 'final_model.keras'))
 model = load_model(MODEL_PATH)
 
 def get_db_connection():
@@ -97,10 +105,20 @@ def profile():
 
 @app.route('/api/predict', methods=['POST'])
 def predict():
+    # Require a logged-in session: inference loads the GPU model and writes an
+    # upload to disk, so it must not be an open, unauthenticated endpoint.
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
 
     file = request.files['file']
+
+    # Only accept image extensions we actually run inference on.
+    ext = os.path.splitext(file.filename or '')[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return jsonify({'error': 'Unsupported file type'}), 400
 
     # Sanitize the client-supplied filename to prevent path traversal
     # (e.g. "../../etc/cron.d/x"). Fall back to a safe default if it sanitizes
@@ -146,4 +164,6 @@ if __name__ == '__main__':
     # debug must stay False in production: the Werkzeug debugger allows
     # remote code execution. Enable locally with FLASK_DEBUG=true if needed.
     debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
-    app.run(host='0.0.0.0', port=5000, debug=debug)
+    # Bind to loopback by default so the dev server isn't exposed on the LAN;
+    # set HOST=0.0.0.0 explicitly (behind a real WSGI server/proxy) to expose.
+    app.run(host=os.getenv('HOST', '127.0.0.1'), port=int(os.getenv('PORT', 5000)), debug=debug)
